@@ -1,0 +1,17 @@
+{
+  "files.associations": {
+    "*.cjson": "jsonc",
+    "*.wxss": "css",
+    "*.wxs": "javascript",
+    "*.cpp": "cpp",
+    "user.h": "c",
+    "stat.h": "c",
+    "*.tcc": "c",
+    "string": "c",
+    "unordered_map": "c",
+    "functional": "c",
+    "string_view": "c",
+    "ratio": "c",
+    "streambuf": "c"
+  }
+}

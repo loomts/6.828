@@ -1,0 +1,12 @@
+1. 
+struct usyscall {
+  int pid;  // Process ID
+  struct proc *parent  // Parent process 
+};
+through this speed up fork()
+
+2. 
+page0: data and text
+page1: guard page
+page2: process's initial stack
+page3: page3 to MAX

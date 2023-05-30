@@ -63,6 +63,10 @@ void            ramdiskrw(struct buf*);
 void*           kalloc(void);
 void            kfree(void *);
 void            kinit(void);
+uint64          get_page_count(uint64);
+void            add_page_count(uint64);
+void            minus_page_count(uint64);
+void            set_page_count(uint64,int);
 
 // log.c
 void            initlog(int, struct superblock*);
@@ -147,6 +151,7 @@ void            trapinit(void);
 void            trapinithart(void);
 extern struct spinlock tickslock;
 void            usertrapret(void);
+int             cowcopy(pagetable_t,uint64);
 
 // uart.c
 void            uartinit(void);

@@ -29,6 +29,37 @@ trapinithart(void)
   w_stvec((uint64)kernelvec);
 }
 
+// when hits the cow page, process this func
+int cowcopy(pagetable_t pagetable, uint64 va){
+  if(va >= myproc()->sz)return -1;
+  if(va>MAXVA)return -1;
+  va = PGROUNDDOWN(va);
+  // printf("page fault %p\n", va);
+  pte_t *pte = walk(pagetable,va,0);
+  if(pte==0) return -1;
+  uint64 pa = PTE2PA(*pte);
+  uint64 flags = PTE_FLAGS(*pte);
+  if(!(flags&PTE_COW)||!(flags&PTE_V)||!(flags&PTE_U)){
+    // printf("usertrap: pte not exist or it's not cow page\n\n");
+    // printf("%d\n",flags);
+    return -1;
+  }
+  // 当引用计数大于 1 的时候才需要
+  if(get_page_count(pa)>1) {
+    uint64 new = (uint64)kalloc();
+    if(new == 0){
+      panic("no space for kalloc!\n");
+    }
+    memmove((char*)new,(char*)pa,PGSIZE);
+    if(mappages(pagetable,va,PGSIZE,new,(flags&(~PTE_COW))|PTE_W)!=0){
+      kfree((void*)new);
+      return -1;
+    }
+    kfree((void*)pa);
+  } else *pte = (*pte&(~PTE_COW))|PTE_W;
+  return 0;
+}
+
 //
 // handle an interrupt, exception, or system call from user space.
 // called from trampoline.S
@@ -63,10 +94,13 @@ usertrap(void)
     // an interrupt will change sepc, scause, and sstatus,
     // so enable only now that we're done with those registers.
     intr_on();
-
     syscall();
   } else if((which_dev = devintr()) != 0){
     // ok
+  } else if(r_scause() == 15 || r_scause() == 13) {
+    if(r_stval() < PGSIZE || cowcopy(myproc()->pagetable,r_stval()) == -1) {
+      p->killed = 1;
+    }
   } else {
     printf("usertrap(): unexpected scause %p pid=%d\n", r_scause(), p->pid);
     printf("            sepc=%p stval=%p\n", r_sepc(), r_stval());

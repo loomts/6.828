@@ -1,0 +1,13 @@
+{
+  "files.associations": {
+    "*.cjson": "jsonc",
+    "*.wxss": "css",
+    "*.wxs": "javascript",
+    "*.cpp": "cpp",
+    "condition_variable": "c",
+    "*.tcc": "c",
+    "mutex": "c",
+    "ostream": "c",
+    "stop_token": "c"
+  }
+}

@@ -1,0 +1,1 @@
+when the entry be insert at the same time(only 2 threads will happen), the race condition will come, the old one will cover the newer one.

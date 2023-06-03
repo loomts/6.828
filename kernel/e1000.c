@@ -103,6 +103,25 @@ e1000_transmit(struct mbuf *m)
   // a pointer so that it can be freed after sending.
   //
   
+  // E1000_TDT: next packet
+  acquire(&e1000_lock);
+  uint32 nex = regs[E1000_TDT];
+  if(!(tx_ring[nex].status & E1000_TXD_STAT_DD))
+  {
+    release(&e1000_lock);
+    return -1;
+  }
+  if(tx_mbufs[nex]) {
+    mbuffree(tx_mbufs[nex]);
+    tx_mbufs[nex] = 0;
+  }
+
+  tx_ring[nex].addr = (uint64)m->head;
+  tx_ring[nex].length = m->len;
+  tx_ring[nex].cmd = E1000_TXD_CMD_RS | E1000_TXD_CMD_EOP;
+  tx_mbufs[nex] = m;
+  regs[E1000_TDT] = (regs[E1000_TDT]+1)%TX_RING_SIZE;
+  release(&e1000_lock);
   return 0;
 }
 
@@ -115,6 +134,18 @@ e1000_recv(void)
   // Check for packets that have arrived from the e1000
   // Create and deliver an mbuf for each packet (using net_rx()).
   //
+  while(1){
+    int nex = (regs[E1000_RDT]+1) % RX_RING_SIZE;
+    if(!(rx_ring[nex].status & E1000_RXD_STAT_DD)) {
+      return ;
+    }
+    rx_mbufs[nex]->len = rx_ring[nex].length;
+    net_rx(rx_mbufs[nex]);
+    rx_mbufs[nex] = mbufalloc(MBUF_DEFAULT_HEADROOM);
+    rx_ring[nex].addr = (uint64)rx_mbufs[nex]->head;
+    rx_ring[nex].status = 0;
+    regs[E1000_RDT] = nex;
+  }
 }
 
 void

@@ -5,6 +5,7 @@
 #include "spinlock.h"
 #include "proc.h"
 #include "defs.h"
+#include "fcntl.h"
 
 struct cpu cpus[NCPU];
 
@@ -158,6 +159,15 @@ freeproc(struct proc *p)
   if(p->trapframe)
     kfree((void*)p->trapframe);
   p->trapframe = 0;
+  for(int i = 0; i < NVMA; i++){
+    if(p->vmas[i].valid){
+      if(p->vmas[i].flags == MAP_SHARED && p->vmas[i].prot& PROT_WRITE)
+        filewrite(p->vmas[i].mapfile,p->vmas[i].addr,p->vmas[i].length);
+      fileclose(p->vmas[i].mapfile);
+      uvmunmap(p->pagetable,p->vmas[i].addr,p->vmas[i].length/PGSIZE,1);
+      p->vmas[i].valid = 0;
+    }
+  }
   if(p->pagetable)
     proc_freepagetable(p->pagetable, p->sz);
   p->pagetable = 0;
@@ -307,7 +317,13 @@ fork(void)
     if(p->ofile[i])
       np->ofile[i] = filedup(p->ofile[i]);
   np->cwd = idup(p->cwd);
-
+  for(int i = 0; i < NVMA; i++){
+    if(p->vmas[i].valid)
+    {
+      memmove(&np->vmas[i],&p->vmas[i],sizeof(p->vmas[i]));
+      filedup(p->vmas[i].mapfile);
+    }
+  }
   safestrcpy(np->name, p->name, sizeof(p->name));
 
   pid = np->pid;
@@ -350,7 +366,16 @@ exit(int status)
 
   if(p == initproc)
     panic("init exiting");
-
+  for(int i = 0; i < NVMA; i++){
+    
+    if(p->vmas[i].valid){
+      if(p->vmas[i].flags == MAP_SHARED && p->vmas[i].prot& PROT_WRITE)
+        filewrite(p->vmas[i].mapfile,p->vmas[i].addr,p->vmas[i].length);
+      fileclose(p->vmas[i].mapfile);
+      uvmunmap(p->pagetable,p->vmas[i].addr,p->vmas[i].length/PGSIZE,1);
+      p->vmas[i].valid = 0;
+    }
+  }
   // Close all open files.
   for(int fd = 0; fd < NOFILE; fd++){
     if(p->ofile[fd]){
